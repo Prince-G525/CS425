@@ -32,23 +32,6 @@ def broadcast(msg,group_name,prefix=""):
         send(sock,prefix+msg)
 
 
-# common broadcasr handler for both cases
-def broadcast_handler(client,name,group_name,complete_path):
-    msg = '%s has joined the group.' %name
-    broadcast(msg,group_name)
-    while True:
-        msg = recv(client)
-        if msg != 'exit':
-            broadcast(msg,group_name,name+": ")
-            append(complete_path,name+": "+msg+"\n")
-        else:
-            client.close()
-            groups[group_name].remove(client)
-            msg = '%s has left.' %name
-            broadcast(msg,group_name)
-            break
-
-
 # returns data read from file
 def read(file):
     f = open(file,'r')
@@ -214,6 +197,23 @@ def handle_join(client,name):
         groups[group_name] = [client]
 
     broadcast_handler(client,name,group_name,complete_path)
+
+
+# common broadcasr handler for both cases
+def broadcast_handler(client,name,group_name,complete_path):
+    msg = '%s has joined the group.' %name
+    broadcast(msg,group_name)
+    while True:
+        msg = recv(client)
+        if msg != 'exit':
+            broadcast(msg,group_name,name+": ")
+            append(complete_path,name+": "+msg+"\n")
+        else:
+            client.close()
+            groups[group_name].remove(client)
+            msg = '%s has left.' %name
+            broadcast(msg,group_name)
+            break
 
 
 
