@@ -3,9 +3,8 @@ from threading import Thread
 import os
 
 clients = {}
-addressess = {}
 groups = {}
-path = 'logs/'
+path = 'chats/'
 
 HOST = ''
 PORT = 10000
@@ -14,84 +13,208 @@ ADDR = (HOST,PORT)
 SERVER = socket(AF_INET, SOCK_STREAM)
 SERVER.bind(ADDR)
 
+# sends string msg to client
+def send(client,msg):
+    client.send(bytes(msg,"utf8"))
+
+
+# returns msg received by client
+def recv(client):
+    msg = client.recv(BUFSIZ).decode("utf8")
+    return msg
+
+
+# broadcasts message to the online members of the group
+def broadcast(msg,group_name,prefix=""):
+    for sock in groups[group_name]:
+        send(sock,prefix+msg)
+
+
+# common broadcasr handler for both cases
+def broadcast_handler(client,name,group_name,complete_path):
+    msg = '%s has joined the group.' %name
+    broadcast(msg,group_name)
+    while True:
+        msg = recv(client)
+        if msg != 'exit':
+            broadcast(msg,group_name,name+": ")
+            append(complete_path,name+": "+msg+"\n")
+        else:
+            msg = 'Exited'
+            send(client,msg)
+            client.close()
+            groups[group_name].remove(client)
+            msg = '%s has left.' %name
+            broadcast(msg,group_name)
+            break
+
+
+# returns data read from file
+def read(file):
+    f = open(file,'r')
+    contents = f.read()
+    contents = contents.strip()
+    f.close()
+    return contents
+
+
+# appends data to the file
+def append(file,data):
+    f = open(file,'a')
+    f.write(data)
+    f.close()
+
+
+# returns all the present group credentials as a dictionary
+def get_groups():
+
+    data = read('groups.txt')
+    if data=='':
+        return {}
+    data = data.split('\n')
+    d = {}
+    for line in data:
+        (groupName, password) = line.split()
+        d[groupName] = password
+    return d
+
+
+# returns group name received from client
+def get_group_name(client):
+
+    msg = 'Please enter group name '
+    send(client,msg)
+    name = recv(client)
+    return name
+
+
+# common helper function
+def maximum_attempt_exceeded(client):
+
+    msg = 'Maximum attempts exceeded!\nClosing Connection'
+    send(client,msg)
+    client.close()
+
+
+# keeps listening for incoming connections
 def accept_incoming_connections():
+
     while True:
         client, client_address = SERVER.accept()
         print("%s:%s has connected." % client_address)
-        client.send(bytes("Type your name and enter : ","utf8"))
-        addressess[client] = client_address
+        msg = 'Welcome \nPlease type your name'
+        send(client,msg)
         Thread(target=handle_client, args=(client,)).start()
 
+
+# handles newly created client
 def handle_client(client):
-    name = client.recv(BUFSIZ).decode("utf8")
-    msg = 'Hello %s! Type create to create a new group or join to join a group' %name
-    client.send(bytes(msg,"utf8"))
-    opt = client.recv(BUFSIZ).decode("utf8")
-    if opt=='create':
+
+    name = recv(client)
+    msg = 'Hello %s!\nType \"create\" to create a new group or \"join\" to join a group' %name
+    send(client,msg)
+    opt = recv(client)
+
+    counter = 0
+    while opt != 'create' and opt != 'join':
+        if counter == 3:
+            maximum_attempt_exceeded(client)
+            return
+        else:
+            send(client,'Wrong Option')
+            send(client,msg)
+            opt = recv(client)
+            counter = counter + 1
+
+    if opt == 'create':
         handle_create(client,name)
-    elif opt=='join':
+    elif opt == 'join':
         handle_join(client,name)
-    else:
-        client.send(bytes('Sorry that didn\'t work out. Closing connection.','utf8'))
-        client.close()
 
+
+# handles new group creation
 def handle_create(client,name):
-    msg = 'Please create group name'
-    client.send(bytes(msg,"utf8"))
-    f = open('groups.txt','r')
-    d = {}
-    gname = client.recv(BUFSIZ).decode("utf8")
-    for line in f:
-        (groupName, password) = line.split()
-        d[groupName] = password
-    while gname in d:
-        client.send(bytes('Sorry group name already present! Try again','utf8'))
-        gname = client.recv(BUFSIZ).decode("utf8")
-    client.send(bytes('That works ! Please create a password for the group :',"utf8"))
-    pas = client.recv(BUFSIZ).decode("utf8")
-    f.close()
-    f = open('groups.txt','a')
-    f.write(gname+" "+pas+"\n")
-    f.close()
-    groups[gname] = [client]
-    client.send(bytes('Group %s created.\n To quit type exit.' %gname,'utf8'))
-    complete_path = os.path.join(path,gname+".txt")
-    f=open(complete_path,'a')
-    msg = "%s has joined the group." %name
-    broadcast(bytes(msg,"utf8"),gname)
-    while True:
-        msg = client.recv(BUFSIZ).decode("utf8")
-        if msg != "exit":
-            broadcast(bytes(msg,"utf8"),gname,name+": ")
-            f.write(name+": "+msg+"\n")
-        else:
-            client.send(bytes("Exited","utf8"))
-            client.close()
-            groups[gname].remove(client)
-            broadcast(bytes("%s has left." %name,"utf8"),gname)
-            break
 
-'''def handle_client(client):
-    name = client.recv(BUFSIZ).decode("utf8")
-    welcome = 'Welcome %s! To quit type {quit} to exit.' %name
-    client.send(bytes(welcome,"utf8"))
-    msg = "%s has joined the gang." % name
-    broadcast(bytes(msg,"utf8"))
-    clients[client] = name
-    while True:
-        msg = client.recv(BUFSIZ)
-        if msg != bytes("{quit}","utf8"):
-            broadcast(msg,name+": ")
-        else:
-            client.send(bytes("{quit}","utf8"))
-            client.close()
-            del clients[client]
-            broadcast(bytes("%s has left the gang." % name, "utf8"))
-            break'''
+    group_name = get_group_name(client)
+    group_creds = get_groups()
 
-def broadcast(msg,gname,prefix=""):
-    for sock in groups[gname]:
-        sock.send(bytes(prefix,"utf8")+msg)
+    counter = 0
+    while group_name in group_creds:
+        if counter == 5:
+            maximum_attempt_exceeded(client)
+            return
+        else:
+            msg = 'Sorry group name taken! Try again!'
+            send(client,msg)
+            group_name = get_group_name(client)
+            counter = counter + 1
+
+    msg = 'That works ! Please create a password'
+    send(client,msg)
+    password = recv(client)
+    data = group_name+" "+password+"\n"
+    append('group.txt',data)
+    groups[group_name] = [client]
+
+    msg = 'Group %s created.\nTo quit type \"exit\".' %group_name
+    send(client,msg)
+
+    complete_path = os.path.join(path,group_name+'.txt')
+
+    broadcast_handler(client,name,group_name,complete_path)
+
+
+#handles group joining
+def handle_join(client,name):
+
+    group_name = get_group_name(client)
+    group_creds = get_groups()
+
+    counter = 0
+    while group_name not in group_creds:
+        if counter == 5:
+            maximum_attempt_exceeded(client)
+            return
+        else:
+            msg = 'Sorry group not present! Try again!'
+            send(client,msg)
+            group_name = get_group_name(client)
+            counter = counter + 1
+
+    msg = 'Please enter password'
+    send(client,msg)
+    password = recv(client)
+
+    counter = 0
+    while password != group_creds[group_name]:
+        if counter == 5:
+            maximum_attempt_exceeded(client)
+            return
+        else:
+            msg = 'Wrong password!\nTry again!'
+            send(client,msg)
+            password = recv(client)
+            counter = counter + 1
+
+    complete_path = os.path.join(path,group_name+'.txt')
+    chat_logs = read(complete_path)
+    i = 0
+    siz = len(chat_logs)
+    while i<siz:
+        msg = chat_logs[i:i+BUFSIZ]
+        send(client,msg)
+        i = i+BUFSIZ
+
+    msg = 'Entered successfully!\nTo quit type \"exit\".'
+    send(client,msg)
+    if group_name in groups:
+        groups[group_name].append(client)
+    else:
+        groups[group_name] = [client]
+
+    broadcast_handler(client,name,group_name,complete_path)
+
+
 
 if __name__=="__main__":
     SERVER.listen(5)
