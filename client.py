@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 #dummy client for testing
 from socket import AF_INET,socket,SOCK_STREAM
 

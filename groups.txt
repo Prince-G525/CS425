@@ -1,2 +1,3 @@
 pg ping
 g1 pass1
+rh rh1

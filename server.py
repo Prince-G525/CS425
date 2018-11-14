@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from socket import AF_INET, socket, SOCK_STREAM
 from threading import Thread
 import os
@@ -40,8 +42,6 @@ def broadcast_handler(client,name,group_name,complete_path):
             broadcast(msg,group_name,name+": ")
             append(complete_path,name+": "+msg+"\n")
         else:
-            msg = 'Exited'
-            send(client,msg)
             client.close()
             groups[group_name].remove(client)
             msg = '%s has left.' %name
@@ -164,7 +164,7 @@ def handle_create(client,name):
     broadcast_handler(client,name,group_name,complete_path)
 
 
-#handles group joining
+# handles group joining
 def handle_join(client,name):
 
     group_name = get_group_name(client)
