@@ -153,7 +153,7 @@ def handle_create(client,name):
     send(client,msg)
     password = recv(client)
     data = group_name+" "+password+"\n"
-    append('group.txt',data)
+    append('groups.txt',data)
     groups[group_name] = [client]
 
     msg = 'Group %s created.\nTo quit type \"exit\".' %group_name
@@ -171,6 +171,7 @@ def handle_join(client,name):
     group_creds = get_groups()
 
     counter = 0
+    print(group_creds)
     while group_name not in group_creds:
         if counter == 5:
             maximum_attempt_exceeded(client)

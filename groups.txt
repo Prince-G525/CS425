@@ -1,0 +1,2 @@
+pg ping
+g1 pass1
