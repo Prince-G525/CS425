@@ -92,21 +92,9 @@ def accept_incoming_connections():
 # handles newly created client
 def handle_client(client):
     msg = recv(client)
-    counter = 0
-    while msg != 'login' and msg != 'signup':
-        if counter == 3:
-            maximum_attempt_exceeded(client)
-            return
-        else:
-            send(client,'Error')
-            msg = recv(client)
-            counter = counter + 1
-
     if msg == 'login':
-        send(client,'Success')
         handle_login(client)
     elif msg == 'signup':
-        send(client,'Success')
         handle_signup(client)
 
 
@@ -120,11 +108,11 @@ def handle_login(client):
         return
     users = users.split('\n')
     for user in users:
-        (un,pwd,nm) = user.split()
-        d[un]=[pwd,nm]
+        (un,pwd) = user.split()
+        d[un]=pwd
 
     counter = 0
-    while uname not in d or d[uname][0] != password:
+    while uname not in d or d[uname] != password:
         if counter == 5:
             maximum_attempt_exceeded(client)
             return
@@ -135,20 +123,18 @@ def handle_login(client):
             counter = counter + 1
 
     send(client,'Success')
-    name = d[uname][1]
-    handle_group(client,name)
+    handle_group(client,uname)
 
 
 def handle_signup(client):
     uname = recv(client)
     password = recv(client)
-    name = recv(client)
     d = []
     users = read('users.txt')
     if users != '':
         users = users.split('\n')
         for user in users:
-            (u,p,n) = user.split()
+            (u,p) = user.split()
             d.append(u)
 
     counter = 0
@@ -160,12 +146,11 @@ def handle_signup(client):
             send(client,'Error')
             uname = recv(client)
             password = recv(client)
-            name = recv(client)
             counter = counter + 1
 
     send(client,'Success')
-    append('users.txt',uname+" "+password+" "+name+"\n")
-    handle_group(client,name)
+    append('users.txt',uname+" "+password+"\n")
+    handle_group(client,uname)
 
 
 # handles newly created client
@@ -202,7 +187,7 @@ def handle_create(client,name,group_name):
     append('groups.txt',data)
     groups[group_name] = [client]
 
-    msg = 'Group %s created.\nTo quit type \"exit\".' %group_name
+    msg = 'Success'
     send(client,msg)
 
     complete_path = os.path.join(path,group_name+'.txt')
@@ -213,7 +198,6 @@ def handle_create(client,name,group_name):
 # handles group joining
 def handle_join(client,name,group_name):
 
-    group_name = get_group_name(client)
     group_creds = get_groups()
 
     counter = 0
@@ -222,12 +206,12 @@ def handle_join(client,name,group_name):
             maximum_attempt_exceeded(client)
             return
         else:
-            msg = 'Sorry group not present! Try again!'
+            msg = 'Error'
             send(client,msg)
-            group_name = get_group_name(client)
+            group_name = recv(client)
             counter = counter + 1
 
-    msg = 'Please enter password'
+    msg = 'Success'
     send(client,msg)
     password = recv(client)
 
@@ -237,7 +221,7 @@ def handle_join(client,name,group_name):
             maximum_attempt_exceeded(client)
             return
         else:
-            msg = 'Wrong password!\nTry again!'
+            msg = 'Error'
             send(client,msg)
             password = recv(client)
             counter = counter + 1
