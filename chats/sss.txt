@@ -1,0 +1,12 @@
+satyam: hello everyone
+shivam: hi
+sundaram: hey
+sundaram: bye
+satyam: 
+satyam: oops
+shivam: satyam made some mistake
+satyam: stop kidding
+shivam: bye
+satyam: go boy
+satyam: nothing to say
+satyam: bye

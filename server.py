@@ -73,7 +73,7 @@ def get_group_name(client):
 # common helper function
 def maximum_attempt_exceeded(client):
 
-    msg = 'Close'
+    msg = 'Maximum Attempt Exceeded.\nClosing connection.\n'
     send(client,msg)
     client.close()
 
@@ -84,7 +84,7 @@ def accept_incoming_connections():
     while True:
         client, client_address = SERVER.accept()
         print("%s:%s has connected." % client_address)
-        msg = 'Welcome'
+        msg = 'Welcome ! Enter(login/signup)'
         send(client,msg)
         Thread(target=handle_client, args=(client,)).start()
 
@@ -99,7 +99,9 @@ def handle_client(client):
 
 
 def handle_login(client):
+    send(client,'Enter username')
     uname = recv(client)
+    send(client,'Enter password')
     password = recv(client)
     d = {}
     users = read('users.txt')
@@ -117,17 +119,21 @@ def handle_login(client):
             maximum_attempt_exceeded(client)
             return
         else:
-            send(client,'Error')
+            send(client,'Error\n')
+            send(client,'Enter username')
             uname = recv(client)
+            send(client,'Enter password')
             password = recv(client)
             counter = counter + 1
 
-    send(client,'Success')
+    send(client,'Success\n')
     handle_group(client,uname)
 
 
 def handle_signup(client):
+    send(client,'Enter username')
     uname = recv(client)
+    send(client,'Enter password')
     password = recv(client)
     d = []
     users = read('users.txt')
@@ -143,20 +149,23 @@ def handle_signup(client):
             maximum_attempt_exceeded(client)
             return
         else:
-            send(client,'Error')
+            send(client,'Error\n')
+            send(client,'Enter username')
             uname = recv(client)
+            send(client,'Enter password')
             password = recv(client)
             counter = counter + 1
 
-    send(client,'Success')
+    send(client,'Success\n')
     append('users.txt',uname+" "+password+"\n")
     handle_group(client,uname)
 
 
 # handles newly created client
 def handle_group(client,name):
-
+    send(client,'Enter option (create/join) group')
     opt = recv(client)
+    send(client,'Enter group name')
     group_name = recv(client)
     if opt == 'create':
         handle_create(client,name,group_name)
@@ -175,19 +184,21 @@ def handle_create(client,name,group_name):
             maximum_attempt_exceeded(client)
             return
         else:
-            msg = 'Error'
+            msg = 'Error\nGroup already present.\n'
             send(client,msg)
+            send(client,'Enter group name')
             group_name = recv(client)
             counter = counter + 1
 
-    msg = 'Success'
+    msg = 'Success\n'
     send(client,msg)
+    send(client,'Enter password')
     password = recv(client)
     data = group_name+" "+password+"\n"
     append('groups.txt',data)
     groups[group_name] = [client]
 
-    msg = 'Success'
+    msg = 'Success\n'
     send(client,msg)
 
     complete_path = os.path.join(path,group_name+'.txt')
@@ -206,13 +217,15 @@ def handle_join(client,name,group_name):
             maximum_attempt_exceeded(client)
             return
         else:
-            msg = 'Error'
+            msg = 'Error\nGroup not found.\n'
             send(client,msg)
+            send(client,'Enter group name')
             group_name = recv(client)
             counter = counter + 1
 
-    msg = 'Success'
+    msg = 'Success\n'
     send(client,msg)
+    send(client,'Enter password')
     password = recv(client)
 
     counter = 0
@@ -221,22 +234,23 @@ def handle_join(client,name,group_name):
             maximum_attempt_exceeded(client)
             return
         else:
-            msg = 'Error'
+            msg = 'Error\nWrong password\nTry again\n'
             send(client,msg)
             password = recv(client)
             counter = counter + 1
+
+    msg = 'Success\n'
+    send(client,msg)
 
     complete_path = os.path.join(path,group_name+'.txt')
     chat_logs = read(complete_path)
     i = 0
     siz = len(chat_logs)
     while i<siz:
-        msg = chat_logs[i:i+BUFSIZ]
-        send(client,msg)
-        i = i+BUFSIZ
+        msg = chat_logs[i:i+BUFSIZ-1]
+        send(client,msg+"\n")
+        i = i+BUFSIZ-1
 
-    msg = 'Success'
-    send(client,msg)
     if group_name in groups:
         groups[group_name].append(client)
     else:
@@ -247,17 +261,17 @@ def handle_join(client,name,group_name):
 
 # common broadcasr handler for both cases
 def broadcast_handler(client,name,group_name,complete_path):
-    msg = '%s has joined the group.' %name
+    msg = '%s has joined the group.\n' %name
     broadcast(msg,group_name)
     while True:
         msg = recv(client)
         if msg != 'exit':
-            broadcast(msg,group_name,name+": ")
+            broadcast(msg+"\n",group_name,name+": ")
             append(complete_path,name+": "+msg+"\n")
         else:
             client.close()
             groups[group_name].remove(client)
-            msg = '%s has left.' %name
+            msg = '%s has left.\n' %name
             broadcast(msg,group_name)
             break
 
