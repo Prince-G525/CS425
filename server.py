@@ -73,7 +73,7 @@ def get_group_name(client):
 # common helper function
 def maximum_attempt_exceeded(client):
 
-    msg = 'Maximum attempts exceeded!\nClosing Connection'
+    msg = 'Close'
     send(client,msg)
     client.close()
 
@@ -84,40 +84,104 @@ def accept_incoming_connections():
     while True:
         client, client_address = SERVER.accept()
         print("%s:%s has connected." % client_address)
-        msg = 'Welcome \nPlease type your name'
+        msg = 'Welcome'
         send(client,msg)
         Thread(target=handle_client, args=(client,)).start()
 
 
 # handles newly created client
 def handle_client(client):
-
-    name = recv(client)
-    msg = 'Hello %s!\nType \"create\" to create a new group or \"join\" to join a group' %name
-    send(client,msg)
-    opt = recv(client)
-
+    msg = recv(client)
     counter = 0
-    while opt != 'create' and opt != 'join':
+    while msg != 'login' and msg != 'signup':
         if counter == 3:
             maximum_attempt_exceeded(client)
             return
         else:
-            send(client,'Wrong Option')
-            send(client,msg)
-            opt = recv(client)
+            send(client,'Error')
+            msg = recv(client)
             counter = counter + 1
 
+    if msg == 'login':
+        send(client,'Success')
+        handle_login(client)
+    elif msg == 'signup':
+        send(client,'Success')
+        handle_signup(client)
+
+
+def handle_login(client):
+    uname = recv(client)
+    password = recv(client)
+    d = {}
+    users = read('users.txt')
+    if users == '':
+        send(client,'Error')
+        return
+    users = users.split('\n')
+    for user in users:
+        (un,pwd,nm) = user.split()
+        d[un]=[pwd,nm]
+
+    counter = 0
+    while uname not in d or d[uname][0] != password:
+        if counter == 5:
+            maximum_attempt_exceeded(client)
+            return
+        else:
+            send(client,'Error')
+            uname = recv(client)
+            password = recv(client)
+            counter = counter + 1
+
+    send(client,'Success')
+    name = d[uname][1]
+    handle_group(client,name)
+
+
+def handle_signup(client):
+    uname = recv(client)
+    password = recv(client)
+    name = recv(client)
+    d = []
+    users = read('users.txt')
+    if users != '':
+        users = users.split('\n')
+        for user in users:
+            (u,p,n) = user.split()
+            d.append(u)
+
+    counter = 0
+    while uname in d:
+        if counter == 5:
+            maximum_attempt_exceeded(client)
+            return
+        else:
+            send(client,'Error')
+            uname = recv(client)
+            password = recv(client)
+            name = recv(client)
+            counter = counter + 1
+
+    send(client,'Success')
+    append('users.txt',uname+" "+password+" "+name+"\n")
+    handle_group(client,name)
+
+
+# handles newly created client
+def handle_group(client,name):
+
+    opt = recv(client)
+    group_name = recv(client)
     if opt == 'create':
-        handle_create(client,name)
+        handle_create(client,name,group_name)
     elif opt == 'join':
-        handle_join(client,name)
+        handle_join(client,name,group_name)
 
 
 # handles new group creation
-def handle_create(client,name):
+def handle_create(client,name,group_name):
 
-    group_name = get_group_name(client)
     group_creds = get_groups()
 
     counter = 0
@@ -126,12 +190,12 @@ def handle_create(client,name):
             maximum_attempt_exceeded(client)
             return
         else:
-            msg = 'Sorry group name taken! Try again!'
+            msg = 'Error'
             send(client,msg)
-            group_name = get_group_name(client)
+            group_name = recv(client)
             counter = counter + 1
 
-    msg = 'That works ! Please create a password'
+    msg = 'Success'
     send(client,msg)
     password = recv(client)
     data = group_name+" "+password+"\n"
@@ -147,13 +211,12 @@ def handle_create(client,name):
 
 
 # handles group joining
-def handle_join(client,name):
+def handle_join(client,name,group_name):
 
     group_name = get_group_name(client)
     group_creds = get_groups()
 
     counter = 0
-    print(group_creds)
     while group_name not in group_creds:
         if counter == 5:
             maximum_attempt_exceeded(client)
