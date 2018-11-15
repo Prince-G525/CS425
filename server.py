@@ -235,7 +235,7 @@ def handle_join(client,name,group_name):
         send(client,msg)
         i = i+BUFSIZ
 
-    msg = 'Entered successfully!\nTo quit type \"exit\".'
+    msg = 'Success'
     send(client,msg)
     if group_name in groups:
         groups[group_name].append(client)
